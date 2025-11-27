@@ -11,7 +11,15 @@ Item {
 
     function resetView() {
         if (!canvas) return;
-        viewportScale = 1.0
+        if (canvas.canvasWidth <= 0 || canvas.canvasHeight <= 0 || width <= 0 || height <= 0) {
+            viewportScale = 1.0
+            viewportOffsetX = 0
+            viewportOffsetY = 0
+            return
+        }
+        var scaleX = width / canvas.canvasWidth
+        var scaleY = height / canvas.canvasHeight
+        viewportScale = Math.min(scaleX, scaleY)
         viewportOffsetX = (width - canvas.canvasWidth * viewportScale) / 2
         viewportOffsetY = (height - canvas.canvasHeight * viewportScale) / 2
     }

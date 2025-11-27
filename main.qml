@@ -86,7 +86,8 @@ ApplicationWindow {
             border.color: Theme.colors.panelBorder
             border.width: 1
 
-            RowLayout {
+            Flow {
+                id: toolFlow
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 12
@@ -109,11 +110,8 @@ ApplicationWindow {
                     onValueModified: if (canvas) canvas.grayValue = value
                 }
 
-                Item { Layout.fillWidth: true } // spacer
-
                 Item {
                     visible: window.temporalActive
-                    Layout.fillWidth: true
                     RowLayout {
                         spacing: 8
                         CheckBox {
@@ -134,8 +132,15 @@ ApplicationWindow {
                             id: tempStartSpin
                             from: 0; to: 100; stepSize: 1
                             editable: true
+                            enabled: !(canvas && canvas.tempSampleStart)
                             value: canvas ? Math.round(canvas.tempStart * 100) : 0
                             onValueModified: if (canvas) canvas.tempStart = value / 100.0
+                        }
+                        CheckBox {
+                            id: tempSampleStart
+                            text: "Pick start"
+                            checked: canvas ? canvas.tempSampleStart : false
+                            onToggled: if (canvas) canvas.tempSampleStart = checked
                         }
 
                         Label { text: "End"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
@@ -143,15 +148,21 @@ ApplicationWindow {
                             id: tempEndSpin
                             from: 0; to: 100; stepSize: 1
                             editable: true
+                            enabled: !(canvas && canvas.tempSampleEnd)
                             value: canvas ? Math.round(canvas.tempEnd * 100) : 0
                             onValueModified: if (canvas) canvas.tempEnd = value / 100.0
+                        }
+                        CheckBox {
+                            id: tempSampleEnd
+                            text: "Pick end"
+                            checked: canvas ? canvas.tempSampleEnd : false
+                            onToggled: if (canvas) canvas.tempSampleEnd = checked
                         }
                     }
                 }
 
                 Item {
                     visible: canvas && canvas.toolMode === "fill"
-                    Layout.fillWidth: true
                     RowLayout {
                         spacing: 8
                         Label { text: "Tolerance"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
@@ -173,6 +184,59 @@ ApplicationWindow {
                             text: "Contiguous only"
                             checked: canvas ? canvas.fillContiguous : true
                             onToggled: if (canvas) canvas.fillContiguous = checked
+                        }
+                    }
+                }
+
+                Item {
+                    visible: canvas && (canvas.toolMode === "linearGradient" || canvas.toolMode === "radialGradient")
+                    RowLayout {
+                        spacing: 8
+                        Label { text: "Gradient type"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
+                        ComboBox {
+                            id: gradientTypeCombo
+                            model: ["Linear", "Radial"]
+                            currentIndex: canvas ? (canvas.toolMode === "linearGradient" ? 0 : 1) : 0
+                            onActivated: function(idx) {
+                                if (!canvas) return;
+                                canvas.toolMode = idx === 0 ? "linearGradient" : "radialGradient";
+                            }
+                        }
+                        Label { text: "Start"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
+                        SpinBox {
+                            id: gradStartSpin
+                            from: 0; to: 100; stepSize: 1
+                            editable: true
+                            value: canvas ? Math.round(canvas.gradientStart * 100) : 0
+                            enabled: !(canvas && canvas.gradientSampleStart)
+                            onValueModified: if (canvas) canvas.gradientStart = value / 100.0
+                        }
+                        CheckBox {
+                            id: gradSampleStart
+                            text: "Pick start"
+                            checked: canvas ? canvas.gradientSampleStart : false
+                            onToggled: if (canvas) canvas.gradientSampleStart = checked
+                        }
+                        Label { text: "End"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
+                        SpinBox {
+                            id: gradEndSpin
+                            from: 0; to: 100; stepSize: 1
+                            editable: true
+                            value: canvas ? Math.round(canvas.gradientEnd * 100) : 100
+                            enabled: !(canvas && canvas.gradientSampleEnd)
+                            onValueModified: if (canvas) canvas.gradientEnd = value / 100.0
+                        }
+                        CheckBox {
+                            id: gradSampleEnd
+                            text: "Pick end"
+                            checked: canvas ? canvas.gradientSampleEnd : false
+                            onToggled: if (canvas) canvas.gradientSampleEnd = checked
+                        }
+                        CheckBox {
+                            id: gradClampCheck
+                            text: "Clamp"
+                            checked: canvas ? canvas.gradientClamp : true
+                            onToggled: if (canvas) canvas.gradientClamp = checked
                         }
                     }
                 }
@@ -318,20 +382,11 @@ ApplicationWindow {
                 ToolButton {
                     icon.source: "assets/icons/gradient.svg"
                     ToolTip.visible: hovered
-                    ToolTip.text: "Linear Gradient"
+                    ToolTip.text: "Gradient"
                     checkable: true
-                    checked: canvas && canvas.toolMode === "linearGradient"
+                    checked: canvas && (canvas.toolMode === "linearGradient" || canvas.toolMode === "radialGradient")
                     ButtonGroup.group: toolButtonsGroup
                     onClicked: if (canvas) canvas.toolMode = "linearGradient"
-                }
-                ToolButton {
-                    icon.source: "assets/icons/gradient.svg"
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Radial Gradient"
-                    checkable: true
-                    checked: canvas && canvas.toolMode === "radialGradient"
-                    ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "radialGradient"
                 }
                 ToolButton {
                     icon.source: "assets/icons/color-picker.svg"

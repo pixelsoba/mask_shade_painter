@@ -7,7 +7,7 @@ from enum import Enum
 from typing import List, Optional, Tuple
 
 from PySide6.QtCore import QPointF, Property, QRectF, Signal, Slot, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QImage, QPainter, QPen, QLinearGradient, QRadialGradient
 from PySide6.QtQuick import QQuickPaintedItem
 
 
@@ -68,9 +68,16 @@ class PainterBackend(QQuickPaintedItem):
     tempStartChanged = Signal()
     tempEndChanged = Signal()
     tempPauseOnIdleChanged = Signal()
+    tempSampleStartChanged = Signal()
+    tempSampleEndChanged = Signal()
     fillToleranceChanged = Signal()
     fillSampleAllLayersChanged = Signal()
     fillContiguousChanged = Signal()
+    gradientStartChanged = Signal()
+    gradientEndChanged = Signal()
+    gradientClampChanged = Signal()
+    gradientSampleStartChanged = Signal()
+    gradientSampleEndChanged = Signal()
     layersChanged = Signal()
     activeLayerChanged = Signal()
     canvasSizeChanged = Signal()
@@ -93,9 +100,16 @@ class PainterBackend(QQuickPaintedItem):
         self._temp_start: float = 0.0
         self._temp_end: float = 1.0
         self._temp_pause_on_idle: bool = True
+        self._temp_sample_start: bool = False
+        self._temp_sample_end: bool = False
         self._fill_tolerance: int = 0  # 0-100 (% of 255)
         self._fill_sample_all_layers: bool = False
         self._fill_contiguous: bool = True
+        self._gradient_start: float = 0.0
+        self._gradient_end: float = 1.0
+        self._gradient_clamp: bool = True
+        self._gradient_sample_start: bool = False
+        self._gradient_sample_end: bool = False
 
         self._canvas_width: int = self.DEFAULT_SIZE
         self._canvas_height: int = self.DEFAULT_SIZE
@@ -111,6 +125,7 @@ class PainterBackend(QQuickPaintedItem):
         self._temp_times: List[float] = []
         self._last_point: Optional[QPointF] = None
         self._stroke_begun: bool = False
+        self._gradient_start_point: Optional[QPointF] = None
 
         self._undo_stack: List[LayerState] = []
         self._redo_stack: List[LayerState] = []
@@ -186,6 +201,28 @@ class PainterBackend(QQuickPaintedItem):
             self._temp_pause_on_idle = value
             self.tempPauseOnIdleChanged.emit()
 
+    @Property(bool, notify=tempSampleStartChanged)
+    def tempSampleStart(self) -> bool:
+        return self._temp_sample_start
+
+    @tempSampleStart.setter
+    def tempSampleStart(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._temp_sample_start:
+            self._temp_sample_start = value
+            self.tempSampleStartChanged.emit()
+
+    @Property(bool, notify=tempSampleEndChanged)
+    def tempSampleEnd(self) -> bool:
+        return self._temp_sample_end
+
+    @tempSampleEnd.setter
+    def tempSampleEnd(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._temp_sample_end:
+            self._temp_sample_end = value
+            self.tempSampleEndChanged.emit()
+
     @Property(int, notify=fillToleranceChanged)
     def fillTolerance(self) -> int:
         return self._fill_tolerance
@@ -218,6 +255,61 @@ class PainterBackend(QQuickPaintedItem):
         if value != self._fill_contiguous:
             self._fill_contiguous = value
             self.fillContiguousChanged.emit()
+
+    @Property(float, notify=gradientStartChanged)
+    def gradientStart(self) -> float:
+        return self._gradient_start
+
+    @gradientStart.setter
+    def gradientStart(self, value: float) -> None:
+        value = _clamp(float(value), 0.0, 1.0)
+        if not math.isclose(value, self._gradient_start):
+            self._gradient_start = value
+            self.gradientStartChanged.emit()
+
+    @Property(float, notify=gradientEndChanged)
+    def gradientEnd(self) -> float:
+        return self._gradient_end
+
+    @gradientEnd.setter
+    def gradientEnd(self, value: float) -> None:
+        value = _clamp(float(value), 0.0, 1.0)
+        if not math.isclose(value, self._gradient_end):
+            self._gradient_end = value
+            self.gradientEndChanged.emit()
+
+    @Property(bool, notify=gradientClampChanged)
+    def gradientClamp(self) -> bool:
+        return self._gradient_clamp
+
+    @gradientClamp.setter
+    def gradientClamp(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._gradient_clamp:
+            self._gradient_clamp = value
+            self.gradientClampChanged.emit()
+
+    @Property(bool, notify=gradientSampleStartChanged)
+    def gradientSampleStart(self) -> bool:
+        return self._gradient_sample_start
+
+    @gradientSampleStart.setter
+    def gradientSampleStart(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._gradient_sample_start:
+            self._gradient_sample_start = value
+            self.gradientSampleStartChanged.emit()
+
+    @Property(bool, notify=gradientSampleEndChanged)
+    def gradientSampleEnd(self) -> bool:
+        return self._gradient_sample_end
+
+    @gradientSampleEnd.setter
+    def gradientSampleEnd(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._gradient_sample_end:
+            self._gradient_sample_end = value
+            self.gradientSampleEndChanged.emit()
 
     @Property(int, notify=canvasSizeChanged)
     def canvasWidth(self) -> int:
@@ -305,6 +397,9 @@ class PainterBackend(QQuickPaintedItem):
             self._begin_stroke()
             self._apply_fill(point)
             self._stroke_begun = False
+        elif self._tool_mode in (ToolMode.LINEAR_GRADIENT, ToolMode.RADIAL_GRADIENT):
+            self._begin_stroke()
+            self._gradient_start_point = point
         else:
             self._begin_stroke()
             self._paint_stroke(point, point)
@@ -326,6 +421,8 @@ class PainterBackend(QQuickPaintedItem):
                 self.update()
         elif self._tool_mode == ToolMode.FILL:
             # Fill only on press for now
+            return
+        elif self._tool_mode in (ToolMode.LINEAR_GRADIENT, ToolMode.RADIAL_GRADIENT):
             return
         else:
             if self._last_point is None:
@@ -350,6 +447,11 @@ class PainterBackend(QQuickPaintedItem):
             self.update()
         elif self._tool_mode == ToolMode.FILL:
             return
+        elif self._tool_mode in (ToolMode.LINEAR_GRADIENT, ToolMode.RADIAL_GRADIENT):
+            if self._gradient_start_point is None:
+                self._gradient_start_point = point
+            self._apply_gradient(self._gradient_start_point, point, self._tool_mode)
+            self._gradient_start_point = None
         else:
             if self._last_point is None:
                 self._last_point = point
@@ -585,9 +687,19 @@ class PainterBackend(QQuickPaintedItem):
             value = int(_clamp(self._gray_value, 0, 255))
             pen_color = QColor(value, value, value)
 
-        pen = QPen(pen_color, self._brush_size, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-        painter.setPen(pen)
-        painter.drawLine(start, end)
+        same_point = start == end
+        if same_point:
+            # Draw a disk to ensure single-click leaves a mark
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(pen_color)
+            if self._tool_mode == ToolMode.ERASER:
+                painter.setBrush(Qt.transparent)
+            radius = self._brush_size * 0.5
+            painter.drawEllipse(QRectF(start.x() - radius, start.y() - radius, self._brush_size, self._brush_size))
+        else:
+            pen = QPen(pen_color, self._brush_size, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.drawLine(start, end)
         painter.end()
 
         self._mark_composite_dirty()
@@ -599,9 +711,33 @@ class PainterBackend(QQuickPaintedItem):
             return
 
         if len(self._temp_path) < 2:
-            value = int(_clamp(self._temp_start * 255.0, 0, 255))
-            self._stroke_single_point(self._temp_path[0], value)
+            value = self._temp_start * 255.0
+            if self._temp_sample_start or self._temp_sample_end:
+                self._ensure_composite()
+                src = self._composite
+                if self._temp_sample_start and self._temp_path:
+                    sx = int(self._temp_path[0].x())
+                    sy = int(self._temp_path[0].y())
+                    if 0 <= sx < src.width() and 0 <= sy < src.height():
+                        value = src.pixelColor(sx, sy).red()
+            self._stroke_single_point(self._temp_path[0], int(_clamp(value, 0, 255)))
             return
+
+        start_v = self._temp_start * 255.0
+        end_v = self._temp_end * 255.0
+        if self._temp_sample_start or self._temp_sample_end:
+            self._ensure_composite()
+            src = self._composite
+            if self._temp_sample_start and self._temp_path:
+                sx = int(self._temp_path[0].x())
+                sy = int(self._temp_path[0].y())
+                if 0 <= sx < src.width() and 0 <= sy < src.height():
+                    start_v = src.pixelColor(sx, sy).red()
+            if self._temp_sample_end and self._temp_path:
+                ex = int(self._temp_path[-1].x())
+                ey = int(self._temp_path[-1].y())
+                if 0 <= ex < src.width() and 0 <= ey < src.height():
+                    end_v = src.pixelColor(ex, ey).red()
 
         use_time = not self._temp_pause_on_idle and len(self._temp_times) == len(self._temp_path)
 
@@ -626,12 +762,12 @@ class PainterBackend(QQuickPaintedItem):
                 total += distance
                 cumulative.append(total)
             if total <= 1e-6:
-                value = int(_clamp(self._temp_start * 255.0, 0, 255))
+                value = int(_clamp(start_v, 0, 255))
                 self._stroke_single_point(self._temp_path[0], value)
                 return
 
-        start_v = self._temp_start * 255.0
-        end_v = self._temp_end * 255.0
+        start_v = _clamp(start_v, 0, 255)
+        end_v = _clamp(end_v, 0, 255)
 
         painter = QPainter(layer.image)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -685,6 +821,7 @@ class PainterBackend(QQuickPaintedItem):
 
         seed_color = src_img.pixelColor(x, y)
         seed_val = seed_color.red()
+        seed_alpha = seed_color.alpha()
         target_val = int(_clamp(self._gray_value, 0, 255))
 
         if seed_val == target_val and not self._fill_sample_all_layers:
@@ -695,9 +832,9 @@ class PainterBackend(QQuickPaintedItem):
         threshold = int(255 * (tol / 100.0))
 
         if self._fill_contiguous:
-            self._flood_fill(layer.image, src_img, x, y, seed_val, target_val, threshold)
+            self._flood_fill(layer.image, src_img, x, y, seed_val, seed_alpha, target_val, threshold)
         else:
-            self._global_fill(layer.image, src_img, seed_val, target_val, threshold)
+            self._global_fill(layer.image, src_img, seed_val, seed_alpha, target_val, threshold)
 
         self._mark_composite_dirty()
         self.update()
@@ -705,12 +842,27 @@ class PainterBackend(QQuickPaintedItem):
     def _within_tol(self, value: int, seed: int, threshold: int) -> bool:
         return abs(value - seed) <= threshold
 
-    def _flood_fill(self, dst_img: QImage, src_img: QImage, x: int, y: int, seed_val: int, target_val: int, threshold: int) -> None:
+    def _match_pixel(self, color: QColor, seed_val: int, seed_alpha: int, threshold: int) -> bool:
+        if seed_alpha == 0:
+            # Transparent seed: only match transparent pixels
+            return color.alpha() == 0
+        return color.alpha() != 0 and self._within_tol(color.red(), seed_val, threshold)
+
+    def _flood_fill(
+        self,
+        dst_img: QImage,
+        src_img: QImage,
+        x: int,
+        y: int,
+        seed_val: int,
+        seed_alpha: int,
+        target_val: int,
+        threshold: int,
+    ) -> None:
         width = src_img.width()
         height = src_img.height()
         visited = bytearray(width * height)
         stack = [(x, y)]
-        seed_channel = seed_val
 
         while stack:
             cx, cy = stack.pop()
@@ -720,10 +872,10 @@ class PainterBackend(QQuickPaintedItem):
             visited[idx] = 1
 
             c = src_img.pixelColor(cx, cy)
-            if not self._within_tol(c.red(), seed_channel, threshold):
+            if not self._match_pixel(c, seed_val, seed_alpha, threshold):
                 continue
 
-            dst_img.setPixelColor(cx, cy, QColor(target_val, target_val, target_val))
+            dst_img.setPixelColor(cx, cy, QColor(target_val, target_val, target_val, 255))
 
             if cx > 0:
                 stack.append((cx - 1, cy))
@@ -734,15 +886,78 @@ class PainterBackend(QQuickPaintedItem):
             if cy < height - 1:
                 stack.append((cx, cy + 1))
 
-    def _global_fill(self, dst_img: QImage, src_img: QImage, seed_val: int, target_val: int, threshold: int) -> None:
+    def _global_fill(
+        self,
+        dst_img: QImage,
+        src_img: QImage,
+        seed_val: int,
+        seed_alpha: int,
+        target_val: int,
+        threshold: int,
+    ) -> None:
         width = src_img.width()
         height = src_img.height()
-        seed_channel = seed_val
         for cy in range(height):
             for cx in range(width):
                 c = src_img.pixelColor(cx, cy)
-                if self._within_tol(c.red(), seed_channel, threshold):
-                    dst_img.setPixelColor(cx, cy, QColor(target_val, target_val, target_val))
+                if self._match_pixel(c, seed_val, seed_alpha, threshold):
+                    dst_img.setPixelColor(cx, cy, QColor(target_val, target_val, target_val, 255))
+
+    def _apply_gradient(self, start: QPointF, end: QPointF, mode: ToolMode) -> None:
+        layer = self._active_layer()
+        if layer is None:
+            return
+
+        start_val = int(_clamp(self._gradient_start * 255.0, 0, 255))
+        end_val = int(_clamp(self._gradient_end * 255.0, 0, 255))
+        if self._gradient_sample_start or self._gradient_sample_end:
+            self._ensure_composite()
+            src = self._composite
+            if self._gradient_sample_start:
+                sx = int(start.x())
+                sy = int(start.y())
+                if 0 <= sx < src.width() and 0 <= sy < src.height():
+                    start_val = src.pixelColor(sx, sy).red()
+            if self._gradient_sample_end:
+                ex = int(end.x())
+                ey = int(end.y())
+                if 0 <= ex < src.width() and 0 <= ey < src.height():
+                    end_val = src.pixelColor(ex, ey).red()
+
+        painter = QPainter(layer.image)
+        try:
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            if mode == ToolMode.LINEAR_GRADIENT:
+                # Handle degenerate case
+                if start == end:
+                    painter.fillRect(0, 0, layer.image.width(), layer.image.height(), QColor(start_val, start_val, start_val, 255))
+                else:
+                    gradient = QLinearGradient(start, end)
+                    if self._gradient_clamp:
+                        gradient.setSpread(QGradient.PadSpread)
+                    else:
+                        gradient.setSpread(QGradient.ReflectSpread)
+                    gradient.setColorAt(0.0, QColor(start_val, start_val, start_val, 255))
+                    gradient.setColorAt(1.0, QColor(end_val, end_val, end_val, 255))
+                    painter.fillRect(0, 0, layer.image.width(), layer.image.height(), gradient)
+            else:
+                radius = math.hypot(end.x() - start.x(), end.y() - start.y())
+                if radius < 1e-3:
+                    painter.fillRect(0, 0, layer.image.width(), layer.image.height(), QColor(start_val, start_val, start_val, 255))
+                else:
+                    grad = QRadialGradient(start, radius)
+                    if self._gradient_clamp:
+                        grad.setSpread(QGradient.PadSpread)
+                    else:
+                        grad.setSpread(QGradient.ReflectSpread)
+                    grad.setColorAt(0.0, QColor(start_val, start_val, start_val, 255))
+                    grad.setColorAt(1.0, QColor(end_val, end_val, end_val, 255))
+                    painter.fillRect(0, 0, layer.image.width(), layer.image.height(), grad)
+        finally:
+            painter.end()
+        self._mark_composite_dirty()
+        self.update()
 
     def _qt_composition_mode(self, blend: BlendMode) -> QPainter.CompositionMode:
         if blend == BlendMode.ADD:
