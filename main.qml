@@ -87,160 +87,48 @@ ApplicationWindow {
             border.width: 1
 
             Flow {
-                id: toolFlow
+                id: flowContent
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 12
 
-                Label { text: "Brush size"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                SpinBox {
-                    id: brushSizeSpin
-                    from: 1; to: 512; stepSize: 1
-                    editable: true
-                    value: canvas ? canvas.brushSize : 0
-                    onValueModified: if (canvas) canvas.brushSize = value
+                Loader {
+                    sourceComponent: brushOptions
+                    active: !!canvas
                 }
-
-                Label { text: "Gray"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                SpinBox {
-                    id: graySpin
-                    from: 0; to: 255; stepSize: 1
-                    editable: true
-                    value: canvas ? canvas.grayValue : 0
-                    onValueModified: if (canvas) canvas.grayValue = value
+                Loader {
+                    sourceComponent: temporalOptions
+                    active: canvas && window.temporalActive
                 }
-
-                Item {
-                    visible: window.temporalActive
-                    RowLayout {
-                        spacing: 8
-                        CheckBox {
-                            id: tempPauseCheck
-                            checked: canvas ? canvas.tempPauseOnIdle : true
-                            text: "Pause when not moving"
-                            onToggled: if (canvas) canvas.tempPauseOnIdle = checked
-                        }
-                        Connections {
-                            target: canvas
-                            function onTempPauseOnIdleChanged() {
-                                tempPauseCheck.checked = canvas ? canvas.tempPauseOnIdle : true
-                            }
-                        }
-
-                        Label { text: "Start"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                        SpinBox {
-                            id: tempStartSpin
-                            from: 0; to: 100; stepSize: 1
-                            editable: true
-                            enabled: !(canvas && canvas.tempSampleStart)
-                            value: canvas ? Math.round(canvas.tempStart * 100) : 0
-                            onValueModified: if (canvas) canvas.tempStart = value / 100.0
-                        }
-                        CheckBox {
-                            id: tempSampleStart
-                            text: "Pick start"
-                            checked: canvas ? canvas.tempSampleStart : false
-                            onToggled: if (canvas) canvas.tempSampleStart = checked
-                        }
-
-                        Label { text: "End"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                        SpinBox {
-                            id: tempEndSpin
-                            from: 0; to: 100; stepSize: 1
-                            editable: true
-                            enabled: !(canvas && canvas.tempSampleEnd)
-                            value: canvas ? Math.round(canvas.tempEnd * 100) : 0
-                            onValueModified: if (canvas) canvas.tempEnd = value / 100.0
-                        }
-                        CheckBox {
-                            id: tempSampleEnd
-                            text: "Pick end"
-                            checked: canvas ? canvas.tempSampleEnd : false
-                            onToggled: if (canvas) canvas.tempSampleEnd = checked
-                        }
-                    }
+                Loader {
+                    sourceComponent: fillOptions
+                    active: canvas && canvas.toolMode === "fill"
                 }
-
-                Item {
-                    visible: canvas && canvas.toolMode === "fill"
-                    RowLayout {
-                        spacing: 8
-                        Label { text: "Tolerance"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                        SpinBox {
-                            id: fillToleranceSpin
-                            from: 0; to: 100; stepSize: 1
-                            editable: true
-                            value: canvas ? canvas.fillTolerance : 0
-                            onValueModified: if (canvas) canvas.fillTolerance = value
-                        }
-                        CheckBox {
-                            id: fillSampleCheck
-                            text: "Sample all layers"
-                            checked: canvas ? canvas.fillSampleAllLayers : false
-                            onToggled: if (canvas) canvas.fillSampleAllLayers = checked
-                        }
-                        CheckBox {
-                            id: fillContiguousCheck
-                            text: "Contiguous only"
-                            checked: canvas ? canvas.fillContiguous : true
-                            onToggled: if (canvas) canvas.fillContiguous = checked
-                        }
-                    }
-                }
-
-                Item {
-                    visible: canvas && (canvas.toolMode === "linearGradient" || canvas.toolMode === "radialGradient")
-                    RowLayout {
-                        spacing: 8
-                        Label { text: "Gradient type"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                        ComboBox {
-                            id: gradientTypeCombo
-                            model: ["Linear", "Radial"]
-                            currentIndex: canvas ? (canvas.toolMode === "linearGradient" ? 0 : 1) : 0
-                            onActivated: function(idx) {
-                                if (!canvas) return;
-                                canvas.toolMode = idx === 0 ? "linearGradient" : "radialGradient";
-                            }
-                        }
-                        Label { text: "Start"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                        SpinBox {
-                            id: gradStartSpin
-                            from: 0; to: 100; stepSize: 1
-                            editable: true
-                            value: canvas ? Math.round(canvas.gradientStart * 100) : 0
-                            enabled: !(canvas && canvas.gradientSampleStart)
-                            onValueModified: if (canvas) canvas.gradientStart = value / 100.0
-                        }
-                        CheckBox {
-                            id: gradSampleStart
-                            text: "Pick start"
-                            checked: canvas ? canvas.gradientSampleStart : false
-                            onToggled: if (canvas) canvas.gradientSampleStart = checked
-                        }
-                        Label { text: "End"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
-                        SpinBox {
-                            id: gradEndSpin
-                            from: 0; to: 100; stepSize: 1
-                            editable: true
-                            value: canvas ? Math.round(canvas.gradientEnd * 100) : 100
-                            enabled: !(canvas && canvas.gradientSampleEnd)
-                            onValueModified: if (canvas) canvas.gradientEnd = value / 100.0
-                        }
-                        CheckBox {
-                            id: gradSampleEnd
-                            text: "Pick end"
-                            checked: canvas ? canvas.gradientSampleEnd : false
-                            onToggled: if (canvas) canvas.gradientSampleEnd = checked
-                        }
-                        CheckBox {
-                            id: gradClampCheck
-                            text: "Clamp"
-                            checked: canvas ? canvas.gradientClamp : true
-                            onToggled: if (canvas) canvas.gradientClamp = checked
-                        }
-                    }
+                Loader {
+                    sourceComponent: gradientOptions
+                    active: canvas && (canvas.toolMode === "linearGradient" || canvas.toolMode === "radialGradient")
                 }
             }
+        }
+
+        Component {
+            id: brushOptions
+            Components.ToolOptionsBrush { canvas: canvas }
+        }
+
+        Component {
+            id: temporalOptions
+            Components.ToolOptionsTemporal { canvas: canvas }
+        }
+
+        Component {
+            id: fillOptions
+            Components.ToolOptionsFill { canvas: canvas }
+        }
+
+        Component {
+            id: gradientOptions
+            Components.ToolOptionsGradient { canvas: canvas }
         }
 
         RowLayout {
@@ -337,66 +225,111 @@ ApplicationWindow {
         id: mainToolBar
         ToolBar {
             contentHeight: 40
+            background: Rectangle {
+                color: Theme.colors.panel
+                border.color: Theme.colors.panelBorder
+                radius: 6
+            }
             RowLayout {
                 anchors.fill: parent
-                anchors.margins: 6
-                spacing: 8
+                anchors.margins: 8
+                spacing: 6
                 ButtonGroup { id: toolButtonsGroup }
 
-                ToolButton {
-                    icon.source: "assets/icons/brush.svg"
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Brush"
-                    checkable: true
-                    checked: canvas && canvas.toolMode === "brush"
-                    ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "brush"
+                Row {
+                    spacing: 6
+                    ToolButton {
+                        icon.source: "assets/icons/brush.svg"
+                        icon.color: Theme.colors.textPrimary
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Brush"
+                        checkable: true
+                        checked: canvas && canvas.toolMode === "brush"
+                        ButtonGroup.group: toolButtonsGroup
+                        onClicked: if (canvas) canvas.toolMode = "brush"
+                        background: Rectangle {
+                            color: parent.checked ? "#2f343d" : "transparent"
+                            border.color: parent.checked ? Theme.colors.layerActiveBorder : "transparent"
+                            radius: 4
+                        }
                 }
                 ToolButton {
                     icon.source: "assets/icons/eraser.svg"
+                    icon.color: Theme.colors.textPrimary
                     ToolTip.visible: hovered
                     ToolTip.text: "Eraser"
                     checkable: true
                     checked: canvas && canvas.toolMode === "eraser"
                     ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "eraser"
+                        onClicked: if (canvas) canvas.toolMode = "eraser"
+                        background: Rectangle {
+                            color: parent.checked ? "#2f343d" : "transparent"
+                            border.color: parent.checked ? Theme.colors.layerActiveBorder : "transparent"
+                            radius: 4
+                        }
                 }
                 ToolButton {
                     icon.source: "assets/icons/temporal.svg"
+                    icon.color: Theme.colors.textPrimary
                     ToolTip.visible: hovered
                     ToolTip.text: "Temporal Pen"
                     checkable: true
                     checked: canvas && canvas.toolMode === "temporal"
                     ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "temporal"
+                        onClicked: if (canvas) canvas.toolMode = "temporal"
+                        background: Rectangle {
+                            color: parent.checked ? "#2f343d" : "transparent"
+                            border.color: parent.checked ? Theme.colors.layerActiveBorder : "transparent"
+                            radius: 4
+                        }
                 }
                 ToolButton {
                     icon.source: "assets/icons/bucket.svg"
+                    icon.color: Theme.colors.textPrimary
                     ToolTip.visible: hovered
                     ToolTip.text: "Fill"
                     checkable: true
                     checked: canvas && canvas.toolMode === "fill"
                     ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "fill"
+                        onClicked: if (canvas) canvas.toolMode = "fill"
+                        background: Rectangle {
+                            color: parent.checked ? "#2f343d" : "transparent"
+                            border.color: parent.checked ? Theme.colors.layerActiveBorder : "transparent"
+                            radius: 4
+                        }
                 }
                 ToolButton {
                     icon.source: "assets/icons/gradient.svg"
+                    icon.color: Theme.colors.textPrimary
                     ToolTip.visible: hovered
                     ToolTip.text: "Gradient"
                     checkable: true
                     checked: canvas && (canvas.toolMode === "linearGradient" || canvas.toolMode === "radialGradient")
                     ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "linearGradient"
+                        onClicked: if (canvas) canvas.toolMode = "linearGradient"
+                        background: Rectangle {
+                            color: parent.checked ? "#2f343d" : "transparent"
+                            border.color: parent.checked ? Theme.colors.layerActiveBorder : "transparent"
+                            radius: 4
+                        }
                 }
                 ToolButton {
                     icon.source: "assets/icons/color-picker.svg"
+                    icon.color: Theme.colors.textPrimary
                     ToolTip.visible: hovered
                     ToolTip.text: "Picker"
                     checkable: true
                     checked: canvas && canvas.toolMode === "picker"
                     ButtonGroup.group: toolButtonsGroup
-                    onClicked: if (canvas) canvas.toolMode = "picker"
+                        onClicked: if (canvas) canvas.toolMode = "picker"
+                        background: Rectangle {
+                            color: parent.checked ? "#2f343d" : "transparent"
+                            border.color: parent.checked ? Theme.colors.layerActiveBorder : "transparent"
+                            radius: 4
+                        }
+                    }
                 }
+                Item { Layout.fillWidth: true }
             }
         }
     }

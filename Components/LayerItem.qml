@@ -24,6 +24,7 @@ Rectangle {
             checkable: true
             checked: layerData ? layerData.visible : true
             icon.source: checked ? "../assets/icons/eye-visible.svg" : "../assets/icons/eye-hidden.svg"
+            icon.color: Theme.colors.textPrimary
             icon.width: 22
             icon.height: 22
             flat: true
@@ -49,6 +50,7 @@ Rectangle {
                 spacing: 6
                 ToolButton {
                     icon.source: "../assets/icons/layer-com.svg"
+                    icon.color: Theme.colors.textPrimary
                     icon.width: 22
                     icon.height: 22
                     implicitWidth: 32

@@ -11,6 +11,7 @@ RowLayout {
 
     ToolButton {
         icon.source: "../assets/icons/layer-add.svg"
+        icon.color: Theme.colors.textPrimary
         icon.width: iconSize
         icon.height: iconSize
         implicitWidth: buttonSize
@@ -19,6 +20,7 @@ RowLayout {
     }
     ToolButton {
         icon.source: "../assets/icons/layer-duplicate.svg"
+        icon.color: Theme.colors.textPrimary
         icon.width: iconSize
         icon.height: iconSize
         implicitWidth: buttonSize
@@ -27,6 +29,7 @@ RowLayout {
     }
     ToolButton {
         icon.source: "../assets/icons/layer-delete.svg"
+        icon.color: Theme.colors.textPrimary
         icon.width: iconSize
         icon.height: iconSize
         implicitWidth: buttonSize
@@ -36,6 +39,7 @@ RowLayout {
     }
     ToolButton {
         icon.source: "../assets/icons/layer-up.svg"
+        icon.color: Theme.colors.textPrimary
         icon.width: iconSize
         icon.height: iconSize
         implicitWidth: buttonSize
@@ -44,6 +48,7 @@ RowLayout {
     }
     ToolButton {
         icon.source: "../assets/icons/layer-down.svg"
+        icon.color: Theme.colors.textPrimary
         icon.width: iconSize
         icon.height: iconSize
         implicitWidth: buttonSize

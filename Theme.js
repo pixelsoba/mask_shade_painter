@@ -4,8 +4,8 @@ var colors = {
     panel: "#1f2125",
     panelBorder: "#2f3238",
     panelBorderStrong: "#2e333b",
-    textPrimary: "#dfe2e7",
-    textMuted: "#8ca0b3",
+    textPrimary: "#ffffff",
+    textMuted: "#cfd4db",
     layerActiveBorder: "#4d88ff",
     layerInactiveBorder: "#3a3f4a"
 };

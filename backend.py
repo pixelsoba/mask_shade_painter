@@ -400,6 +400,10 @@ class PainterBackend(QQuickPaintedItem):
         elif self._tool_mode in (ToolMode.LINEAR_GRADIENT, ToolMode.RADIAL_GRADIENT):
             self._begin_stroke()
             self._gradient_start_point = point
+        elif self._tool_mode == ToolMode.PICKER:
+            sampled = self._sample_point(point)
+            if sampled is not None:
+                self.grayValue = sampled
         else:
             self._begin_stroke()
             self._paint_stroke(point, point)
@@ -418,11 +422,13 @@ class PainterBackend(QQuickPaintedItem):
             if (point - self._temp_path[-1]).manhattanLength() > 1.5:
                 self._temp_path.append(point)
                 self._temp_times.append(self._monotonic_ms())
-                self.update()
+            self.update()
         elif self._tool_mode == ToolMode.FILL:
             # Fill only on press for now
             return
         elif self._tool_mode in (ToolMode.LINEAR_GRADIENT, ToolMode.RADIAL_GRADIENT):
+            return
+        elif self._tool_mode == ToolMode.PICKER:
             return
         else:
             if self._last_point is None:
@@ -447,6 +453,10 @@ class PainterBackend(QQuickPaintedItem):
             self.update()
         elif self._tool_mode == ToolMode.FILL:
             return
+        elif self._tool_mode == ToolMode.PICKER:
+            sampled = self._sample_point(point)
+            if sampled is not None:
+                self.grayValue = sampled
         elif self._tool_mode in (ToolMode.LINEAR_GRADIENT, ToolMode.RADIAL_GRADIENT):
             if self._gradient_start_point is None:
                 self._gradient_start_point = point
@@ -704,6 +714,15 @@ class PainterBackend(QQuickPaintedItem):
 
         self._mark_composite_dirty()
         self.update()
+
+    def _sample_point(self, point: QPointF) -> Optional[int]:
+        x = int(point.x())
+        y = int(point.y())
+        if x < 0 or y < 0 or x >= self._canvas_width or y >= self._canvas_height:
+            return None
+        self._ensure_composite()
+        color = self._composite.pixelColor(x, y)
+        return color.red()
 
     def _bake_temporal_gradient(self) -> None:
         layer = self._active_layer()
