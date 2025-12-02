@@ -16,8 +16,8 @@ Row {
             if (!canvas) return;
             canvas.toolMode = idx === 0 ? "linearGradient" : "radialGradient";
         }
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
     Label { text: "Start"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
     SpinBox {
@@ -27,15 +27,21 @@ Row {
         enabled: !(canvas && canvas.gradientSampleStart)
         value: canvas ? Math.round(canvas.gradientStart * 100) : 0
         onValueModified: if (canvas) canvas.gradientStart = value / 100.0
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
     CheckBox {
         id: gradSampleStart
         text: "Pick start"
         checked: canvas ? canvas.gradientSampleStart : false
         onToggled: if (canvas) canvas.gradientSampleStart = checked
-        palette.text: Theme.colors.textPrimary
+        contentItem: Text {
+            text: gradSampleStart.text
+            font: gradSampleStart.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: gradSampleStart.indicator.width + gradSampleStart.spacing
+        }
     }
     Label { text: "End"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
     SpinBox {
@@ -45,21 +51,33 @@ Row {
         enabled: !(canvas && canvas.gradientSampleEnd)
         value: canvas ? Math.round(canvas.gradientEnd * 100) : 100
         onValueModified: if (canvas) canvas.gradientEnd = value / 100.0
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
     CheckBox {
         id: gradSampleEnd
         text: "Pick end"
         checked: canvas ? canvas.gradientSampleEnd : false
         onToggled: if (canvas) canvas.gradientSampleEnd = checked
-        palette.text: Theme.colors.textPrimary
+        contentItem: Text {
+            text: gradSampleEnd.text
+            font: gradSampleEnd.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: gradSampleEnd.indicator.width + gradSampleEnd.spacing
+        }
     }
     CheckBox {
         id: gradClampCheck
         text: "Clamp"
         checked: canvas ? canvas.gradientClamp : true
         onToggled: if (canvas) canvas.gradientClamp = checked
-        palette.text: Theme.colors.textPrimary
+        contentItem: Text {
+            text: gradClampCheck.text
+            font: gradClampCheck.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: gradClampCheck.indicator.width + gradClampCheck.spacing
+        }
     }
 }

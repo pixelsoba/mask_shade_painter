@@ -14,23 +14,33 @@ Row {
         editable: true
         value: canvas ? canvas.fillTolerance : 0
         onValueModified: if (canvas) canvas.fillTolerance = value
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
     CheckBox {
         id: fillSampleCheck
         text: "Sample all layers"
         checked: canvas ? canvas.fillSampleAllLayers : false
         onToggled: if (canvas) canvas.fillSampleAllLayers = checked
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        contentItem: Text {
+            text: fillSampleCheck.text
+            font: fillSampleCheck.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: fillSampleCheck.indicator.width + fillSampleCheck.spacing
+        }
     }
     CheckBox {
         id: fillContiguousCheck
         text: "Contiguous only"
         checked: canvas ? canvas.fillContiguous : true
         onToggled: if (canvas) canvas.fillContiguous = checked
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        contentItem: Text {
+            text: fillContiguousCheck.text
+            font: fillContiguousCheck.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: fillContiguousCheck.indicator.width + fillContiguousCheck.spacing
+        }
     }
 }

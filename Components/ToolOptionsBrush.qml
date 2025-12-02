@@ -14,8 +14,8 @@ import "../Theme.js" as Theme
         editable: true
         value: canvas ? canvas.brushSize : 0
         onValueModified: if (canvas) canvas.brushSize = value
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
 
     Label { text: "Gray"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
@@ -25,7 +25,7 @@ import "../Theme.js" as Theme
         editable: true
         value: canvas ? canvas.grayValue : 0
         onValueModified: if (canvas) canvas.grayValue = value
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
 }

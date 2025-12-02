@@ -6,6 +6,7 @@ var colors = {
     panelBorderStrong: "#2e333b",
     textPrimary: "#ffffff",
     textMuted: "#cfd4db",
+    textOnLight: "#111111",
     layerActiveBorder: "#4d88ff",
     layerInactiveBorder: "#3a3f4a"
 };

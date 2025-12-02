@@ -12,8 +12,13 @@ Row {
         checked: canvas ? canvas.tempPauseOnIdle : true
         text: "Pause when not moving"
         onToggled: if (canvas) canvas.tempPauseOnIdle = checked
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        contentItem: Text {
+            text: tempPauseCheck.text
+            font: tempPauseCheck.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: tempPauseCheck.indicator.width + tempPauseCheck.spacing
+        }
     }
     Connections {
         target: canvas ? canvas : null
@@ -30,16 +35,21 @@ Row {
         enabled: !(canvas && canvas.tempSampleStart)
         value: canvas ? Math.round(canvas.tempStart * 100) : 0
         onValueModified: if (canvas) canvas.tempStart = value / 100.0
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
     CheckBox {
         id: tempSampleStart
         text: "Pick start"
         checked: canvas ? canvas.tempSampleStart : false
         onToggled: if (canvas) canvas.tempSampleStart = checked
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        contentItem: Text {
+            text: tempSampleStart.text
+            font: tempSampleStart.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: tempSampleStart.indicator.width + tempSampleStart.spacing
+        }
     }
 
     Label { text: "End"; font.family: Theme.fonts.sans; color: Theme.colors.textPrimary }
@@ -50,15 +60,20 @@ Row {
         enabled: !(canvas && canvas.tempSampleEnd)
         value: canvas ? Math.round(canvas.tempEnd * 100) : 0
         onValueModified: if (canvas) canvas.tempEnd = value / 100.0
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        palette.text: Theme.colors.textOnLight
+        palette.buttonText: Theme.colors.textOnLight
     }
     CheckBox {
         id: tempSampleEnd
         text: "Pick end"
         checked: canvas ? canvas.tempSampleEnd : false
         onToggled: if (canvas) canvas.tempSampleEnd = checked
-        palette.text: Theme.colors.textPrimary
-        palette.buttonText: Theme.colors.textPrimary
+        contentItem: Text {
+            text: tempSampleEnd.text
+            font: tempSampleEnd.font
+            color: Theme.colors.textPrimary
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: tempSampleEnd.indicator.width + tempSampleEnd.spacing
+        }
     }
 }
