@@ -7,6 +7,7 @@ from typing import Optional
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
 from PySide6.QtCore import QUrl, QFileSystemWatcher
+from PySide6.QtQuickControls2 import QQuickStyle
 
 from backend import PainterBackend
 
@@ -22,6 +23,7 @@ def load_qml(engine: QQmlApplicationEngine, qml_url: QUrl) -> None:
 def main() -> int:
     app = QGuiApplication(sys.argv)
     qmlRegisterType(PainterBackend, "MSP", 1, 0, "PainterBackend")
+    QQuickStyle.setStyle("Basic")
 
     engine = QQmlApplicationEngine()
     qml_path = os.path.join(os.path.dirname(__file__), "main.qml")

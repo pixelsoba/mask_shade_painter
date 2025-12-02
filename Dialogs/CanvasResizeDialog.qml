@@ -5,6 +5,8 @@ import QtQuick.Layouts 1.15
 Dialog {
     id: resizeDialog
     property var backend
+    property bool createNew: false
+    signal canvasApplied(bool wasNew)
     title: "Resize Canvas"
     modal: true
     standardButtons: Dialog.Ok | Dialog.Cancel
@@ -15,9 +17,19 @@ Dialog {
         }
     }
     onAccepted: {
+        var wasNew = createNew
         if (backend) {
-            backend.resizeCanvas(widthSpin.value, heightSpin.value, anchorCombo.currentText)
+            if (createNew) {
+                backend.newCanvas(widthSpin.value, heightSpin.value)
+            } else {
+                backend.resizeCanvas(widthSpin.value, heightSpin.value, anchorCombo.currentText)
+            }
         }
+        createNew = false
+        canvasApplied(wasNew)
+    }
+    onRejected: {
+        createNew = false
     }
 
     ColumnLayout {

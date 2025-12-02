@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import base64
+import json
 import math
 from dataclasses import dataclass
 import time
 from enum import Enum
 from typing import List, Optional, Tuple
 
-from PySide6.QtCore import QPointF, Property, QRectF, Signal, Slot, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPen, QLinearGradient, QRadialGradient
+from PySide6.QtCore import QBuffer, QPointF, Property, QRectF, Signal, Slot, Qt
+from PySide6.QtGui import QColor, QGradient, QImage, QPainter, QPen, QLinearGradient, QRadialGradient
 from PySide6.QtQuick import QQuickPaintedItem
 
 
@@ -84,6 +86,7 @@ class PainterBackend(QQuickPaintedItem):
     undoAvailableChanged = Signal()
     redoAvailableChanged = Signal()
     statsUpdated = Signal(str)
+    modifiedChanged = Signal()
 
     DEFAULT_SIZE = 1024
     UNDO_LIMIT = 20
@@ -129,6 +132,7 @@ class PainterBackend(QQuickPaintedItem):
 
         self._undo_stack: List[LayerState] = []
         self._redo_stack: List[LayerState] = []
+        self._dirty: bool = False
 
     # --- Properties exposed to QML ---
 
@@ -141,6 +145,7 @@ class PainterBackend(QQuickPaintedItem):
         value = max(1, int(value))
         if value != self._brush_size:
             self._brush_size = value
+            print(f"[debug] brushSize set to {value}")
             self.brushSizeChanged.emit()
 
     @Property(int, notify=grayValueChanged)
@@ -152,6 +157,7 @@ class PainterBackend(QQuickPaintedItem):
         value = int(_clamp(value, 0, 255))
         if value != self._gray_value:
             self._gray_value = value
+            print(f"[debug] grayValue set to {value}")
             self.grayValueChanged.emit()
 
     @Property(str, notify=toolModeChanged)
@@ -345,6 +351,14 @@ class PainterBackend(QQuickPaintedItem):
     def redoAvailable(self) -> bool:
         return len(self._redo_stack) > 0
 
+    @Property(bool, notify=modifiedChanged)
+    def modified(self) -> bool:
+        return self._dirty
+
+    @Slot()
+    def markClean(self) -> None:
+        self._set_dirty(False)
+
     # --- Rendering ---
 
     def paint(self, painter: QPainter) -> None:
@@ -405,6 +419,7 @@ class PainterBackend(QQuickPaintedItem):
             if sampled is not None:
                 self.grayValue = sampled
         else:
+            print(f"[debug] press tool={self._tool_mode.value} brushSize={self._brush_size} gray={self._gray_value}")
             self._begin_stroke()
             self._paint_stroke(point, point)
 
@@ -649,6 +664,133 @@ class PainterBackend(QQuickPaintedItem):
         self._undo_stack.append(self._capture_state())
         self._restore_state(state)
         self._update_undo_redo_flags()
+
+    @Slot(int, int)
+    def newCanvas(self, width: int, height: int) -> None:
+        width = max(1, int(width))
+        height = max(1, int(height))
+        self._canvas_width = width
+        self._canvas_height = height
+        self._layers = [self._make_blank_layer("Layer 1")]
+        self._active_layer_index = 0
+        self._composite = self._make_canvas_image(fill_transparent=True)
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+        self._mark_composite_dirty()
+        self.canvasSizeChanged.emit()
+        self.layersChanged.emit()
+        self.activeLayerChanged.emit()
+        self._update_undo_redo_flags()
+        self._set_dirty(False)
+        self.update()
+
+    @Slot(str, result=bool)
+    def saveProject(self, path: str) -> bool:
+        if not path:
+            return False
+        try:
+            payload = self._serialize_project()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f)
+            self._set_dirty(False)
+            return True
+        except Exception as exc:
+            print(f"Failed to save project: {exc}")
+            return False
+
+    @Slot(str, result=bool)
+    def loadProject(self, path: str) -> bool:
+        if not path:
+            return False
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:
+            print(f"Failed to load project: {exc}")
+            return False
+
+        width = int(data.get("width", self._canvas_width))
+        height = int(data.get("height", self._canvas_height))
+        layers_data = data.get("layers", [])
+        new_layers: List[Layer] = []
+        for idx, entry in enumerate(layers_data):
+            if not isinstance(entry, dict):
+                continue
+            encoded_img = entry.get("image", "")
+            img = self._image_from_base64(encoded_img) if encoded_img else None
+            if img is None:
+                continue
+            if img.width() != width or img.height() != height:
+                img = img.scaled(width, height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+            try:
+                blend_mode = BlendMode(entry.get("blendMode", BlendMode.NORMAL.value))
+            except ValueError:
+                blend_mode = BlendMode.NORMAL
+            layer = Layer(
+                name=str(entry.get("name", f"Layer {idx+1}")),
+                image=img,
+                opacity=float(entry.get("opacity", 1.0)),
+                visible=bool(entry.get("visible", True)),
+                blend_mode=blend_mode,
+            )
+            new_layers.append(layer)
+
+        if not new_layers:
+            new_layers.append(self._make_blank_layer("Layer 1"))
+
+        self._canvas_width = width
+        self._canvas_height = height
+        self._layers = new_layers
+        self._active_layer_index = min(max(int(data.get("activeLayer", 0)), 0), len(self._layers) - 1)
+        self.brushSize = int(data.get("brushSize", self._brush_size))
+        self.grayValue = int(data.get("grayValue", self._gray_value))
+        self.toolMode = str(data.get("toolMode", self._tool_mode.value))
+        self._composite = self._make_canvas_image(fill_transparent=True)
+        self._mark_composite_dirty()
+        self.canvasSizeChanged.emit()
+        self.layersChanged.emit()
+        self.activeLayerChanged.emit()
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+        self._update_undo_redo_flags()
+        self._set_dirty(False)
+        self.update()
+        return True
+
+    @Slot(str, result=bool)
+    def exportPng(self, path: str) -> bool:
+        if not path:
+            return False
+        try:
+            self._ensure_composite()
+            return self._composite.save(path, "PNG")
+        except Exception as exc:
+            print(f"Failed to export png: {exc}")
+            return False
+
+    @Slot(str, result=bool)
+    def importImageAsLayer(self, path: str) -> bool:
+        if not path:
+            return False
+        img = QImage(path)
+        if img.isNull():
+            return False
+        if img.format() != QImage.Format_ARGB32_Premultiplied:
+            img = img.convertToFormat(QImage.Format_ARGB32_Premultiplied)
+        if img.width() != self._canvas_width or img.height() != self._canvas_height:
+            img = img.scaled(self._canvas_width, self._canvas_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        self._push_undo_state()
+        layer = Layer(
+            name=f"Imported {len(self._layers)+1}",
+            image=img,
+            opacity=1.0,
+            visible=True,
+            blend_mode=BlendMode.NORMAL,
+        )
+        self._layers.append(layer)
+        self._active_layer_index = len(self._layers) - 1
+        self._mark_layers_changed()
+        return True
 
     # --- Internal logic ---
 
@@ -1032,6 +1174,7 @@ class PainterBackend(QQuickPaintedItem):
             self._undo_stack.pop(0)
         self._redo_stack.clear()
         self._update_undo_redo_flags()
+        self._set_dirty(True)
 
     def _capture_state(self) -> LayerState:
         snapshot_layers = [self._clone_layer(layer) for layer in self._layers]
@@ -1065,6 +1208,52 @@ class PainterBackend(QQuickPaintedItem):
     def _update_undo_redo_flags(self) -> None:
         self.undoAvailableChanged.emit()
         self.redoAvailableChanged.emit()
+
+    def _set_dirty(self, value: bool = True) -> None:
+        value = bool(value)
+        if value != self._dirty:
+            self._dirty = value
+            self.modifiedChanged.emit()
+
+    def _image_to_base64(self, image: QImage) -> str:
+        buffer = QBuffer()
+        buffer.open(QBuffer.ReadWrite)
+        image.save(buffer, "PNG")
+        data = bytes(buffer.data())
+        return base64.b64encode(data).decode("ascii")
+
+    def _image_from_base64(self, encoded: str) -> Optional[QImage]:
+        try:
+            raw = base64.b64decode(encoded)
+        except Exception:
+            return None
+        img = QImage.fromData(raw, "PNG")
+        if img.isNull():
+            return None
+        if img.format() != QImage.Format_ARGB32_Premultiplied:
+            img = img.convertToFormat(QImage.Format_ARGB32_Premultiplied)
+        return img
+
+    def _serialize_project(self) -> dict:
+        return {
+            "version": 1,
+            "width": self._canvas_width,
+            "height": self._canvas_height,
+            "activeLayer": self._active_layer_index,
+            "brushSize": self._brush_size,
+            "grayValue": self._gray_value,
+            "toolMode": self._tool_mode.value,
+            "layers": [
+                {
+                    "name": layer.name,
+                    "opacity": layer.opacity,
+                    "visible": layer.visible,
+                    "blendMode": layer.blend_mode.value,
+                    "image": self._image_to_base64(layer.image),
+                }
+                for layer in self._layers
+            ],
+        }
 
     def _monotonic_ms(self) -> float:
         return time.monotonic() * 1000.0
